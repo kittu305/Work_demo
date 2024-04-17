@@ -1,0 +1,32 @@
+# Stage 1: Build Expo app
+FROM node:18.17.1-slim as builder
+
+# Creating work directory
+WORKDIR /Queue-app
+
+# Copying repo files to work directory
+COPY ./ /Queue-app/
+
+# Installing dependency's
+RUN npm install
+
+# Building the application
+RUN npm run web-build:dev
+
+
+
+# Stage 2: Use Apache HTTP Server image
+FROM httpd:2.4
+
+# Copy your custom configuration files
+COPY apache_conf/httpd.conf /usr/local/apache2/conf/
+COPY apache_conf/httpd-ssl.conf /usr/local/apache2/conf/extra/
+
+# Copy the built files from the builder stage to Apache's document root
+COPY --from=builder /Queue-app/web-build/ /usr/local/apache2/htdocs/
+
+# Expose the ports you are using
+EXPOSE 8082 443
+
+# Start Apache in the foreground
+CMD ["apachectl", "-D", "FOREGROUND"]

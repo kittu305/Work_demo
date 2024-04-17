@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dev-frontend
+  namespace: development
+  labels:
+    app: dev_frontend
+    env: development
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  hostPath:
+    path: "/mnt/queue-pv/dev"
+  persistentVolumeReclaimPolicy: Retain
+  accessModes:
+  - ReadWriteMany
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: dev-frontend
+  namespace: development
+  labels:
+    app: dev_frontend
+    env: development
+spec:
+  storageClassName: manual
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: dev-frontend
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dev-frontend
+  namespace: development
+  labels:
+    app: dev_frontend
+    env: development
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  serviceName: "dev-frontend"
+  selector:
+    matchLabels:
+      app: dev_frontend
+  template:
+    metadata:
+      labels:
+        app: dev_frontend
+    spec:
+      serviceAccountName: "krishna"
+      terminationGracePeriodSeconds: 10
+      imagePullSecrets:
+      - name: regcred
+      containers:
+      - name: dev-frontend
+        image: "registry:5000/q_dev_frontend$CI_PIPELINE_ID"
+        imagePullPolicy: "IfNotPresent"
+        # securityContext:
+        #   privileged: true
+        ports:
+        - name: queue-ui
+          containerPort: 8082
+        resources:
+          limits:
+            cpu: "250m"
+            memory: "250Mi"
+          requests:
+            cpu: "250m"
+            memory: "250Mi"
+        volumeMounts:
+        - name: dev-frontend
+          mountPath: /data
+      volumes:
+      - name: dev-frontend
+        persistentVolumeClaim:
+          claimName: dev-frontend
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: env
+                operator: In
+                values:
+                - development
+  # volumeClaimTemplates:
+# - metadata:
+#     name: dev-frontend
+#   spec:
+#     accessModes:
+#     - ReadWriteOnce
+#     storageClassName: local-path
+#     resources:
+#       requests:
+#         storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-frontend
+  namespace: development
+  labels:
+    app: dev_frontend
+    env: development
+spec:
+  selector:
+    app: dev_frontend
+  type: ClusterIP # ClusterIP, NodePort
+  ports:
+  - name: queue-ui-service-port
+    protocol: TCP
+    port: 8082
+    targetPort: queue-ui
+# ---
+# apiVersion: autoscaling/v1
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: dev-frontend
+#   namespace: development
+#   labels:
+#     app: dev_frontend
+#     env: development
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: StatefulSet
+#     name: dev-frontend
+#   minReplicas: 1
+#   maxReplicas: 10
+#   targetCPUUtilizationPercentage: 50
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: dev-frontend
+  namespace: development
+  labels:
+    app: dev_frontend
+    env: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: dev-frontend
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 60
+  # behavior:
+#   scaleDown:
+#     stabilizationWindowSeconds: 120
