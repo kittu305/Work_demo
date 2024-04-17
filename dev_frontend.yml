@@ -1,17 +1,17 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: dev-frontend
-  namespace: development
+  name: ui
+  namespace: myNS
   labels:
-    app: dev_frontend
-    env: development
+    app: ui
+    env: dev
 spec:
   storageClassName: manual
   capacity:
     storage: 1Gi
   hostPath:
-    path: "/mnt/queue-pv/dev"
+    path: "/path"
   persistentVolumeReclaimPolicy: Retain
   accessModes:
   - ReadWriteMany
@@ -19,11 +19,11 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: dev-frontend
-  namespace: development
+  name: ui
+  namespace: myNS
   labels:
-    app: dev_frontend
-    env: development
+    app: ui
+    env: dev
 spec:
   storageClassName: manual
   accessModes:
@@ -31,38 +31,38 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  volumeName: dev-frontend
+  volumeName: ui
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: dev-frontend
-  namespace: development
+  name: ui
+  namespace: myNS
   labels:
-    app: dev_frontend
-    env: development
+    app: ui
+    env: dev
 spec:
   replicas: 1
   revisionHistoryLimit: 3
-  serviceName: "dev-frontend"
+  serviceName: "ui"
   selector:
     matchLabels:
-      app: dev_frontend
+      app: ui
   template:
     metadata:
       labels:
-        app: dev_frontend
+        app: ui
     spec:
       serviceAccountName: "krishna"
       terminationGracePeriodSeconds: 10
       imagePullSecrets:
       - name: regcred
       containers:
-      - name: dev-frontend
-        image: "registry:5000/q_dev_frontend$CI_PIPELINE_ID"
+      - name: ui
+        image: "registry:5000/q_ui$CI_PIPELINE_ID"
         imagePullPolicy: "IfNotPresent"
-        # securityContext:
-        #   privileged: true
+        securityContext:
+          privileged: true
         ports:
         - name: queue-ui
           containerPort: 8082
@@ -74,12 +74,12 @@ spec:
             cpu: "250m"
             memory: "250Mi"
         volumeMounts:
-        - name: dev-frontend
+        - name: ui
           mountPath: /data
       volumes:
-      - name: dev-frontend
+      - name: ui
         persistentVolumeClaim:
-          claimName: dev-frontend
+          claimName: ui
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -91,7 +91,7 @@ spec:
                 - development
   # volumeClaimTemplates:
 # - metadata:
-#     name: dev-frontend
+#     name: ui
 #   spec:
 #     accessModes:
 #     - ReadWriteOnce
@@ -103,14 +103,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dev-frontend
-  namespace: development
+  name: ui
+  namespace: myNS
   labels:
-    app: dev_frontend
-    env: development
+    app: ui
+    env: dev
 spec:
   selector:
-    app: dev_frontend
+    app: ui
   type: ClusterIP # ClusterIP, NodePort
   ports:
   - name: queue-ui-service-port
@@ -121,16 +121,16 @@ spec:
 # apiVersion: autoscaling/v1
 # kind: HorizontalPodAutoscaler
 # metadata:
-#   name: dev-frontend
-#   namespace: development
+#   name: ui
+#   namespace: myNS
 #   labels:
-#     app: dev_frontend
-#     env: development
+#     app: ui
+#     env: dev
 # spec:
 #   scaleTargetRef:
 #     apiVersion: apps/v1
 #     kind: StatefulSet
-#     name: dev-frontend
+#     name: ui
 #   minReplicas: 1
 #   maxReplicas: 10
 #   targetCPUUtilizationPercentage: 50
@@ -138,16 +138,16 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: dev-frontend
-  namespace: development
+  name: ui
+  namespace: myNS
   labels:
-    app: dev_frontend
-    env: development
+    app: ui
+    env: dev
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: StatefulSet
-    name: dev-frontend
+    name: ui
   minReplicas: 1
   maxReplicas: 5
   metrics:
